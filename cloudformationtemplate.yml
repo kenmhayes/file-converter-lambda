@@ -1,0 +1,31 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Creates lambda function and S3 bucket necessary for the file conversion functionality
+
+Parameters:
+  BucketName:
+    Type: String
+    Default: 'file-conversion-storage'
+
+Resources:
+  FileStoreS3:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Ref BucketName
+  FileStoreS3BucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+        Bucket: !Ref BucketName
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Action:
+                - 's3:*'
+              Effect: Allow
+              Resource: !Join
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !Ref BucketName
+                  - '/*'
+              Principal:
+                AWS: 'arn:aws:iam::397540002695:user/iamadmin'

@@ -7,8 +7,7 @@
  */
 
 plugins {
-    // Apply the application plugin to add support for building a CLI application in Java.
-    id 'application'
+    id 'java-library'
 }
 
 repositories {
@@ -22,6 +21,8 @@ dependencies {
 
     // This dependency is used by the application.
     implementation 'com.google.guava:guava:31.1-jre'
+    implementation 'com.amazonaws:aws-lambda-java-core:1.2.2'
+    implementation 'com.amazonaws:aws-lambda-java-events:3.11.2'
 }
 
 // Apply a specific Java toolchain to ease working on different environments.
@@ -31,12 +32,16 @@ java {
     }
 }
 
-application {
-    // Define the main class for the application.
-    mainClass = 'converter.App'
-}
-
 tasks.named('test') {
     // Use TestNG for unit tests.
     useTestNG()
 }
+
+task buildZip(type: Zip) {
+    into('lib') {
+        from(jar)
+        from(configurations.runtimeClasspath)
+    }
+}
+
+version = '1.0.0'
