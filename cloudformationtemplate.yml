@@ -6,26 +6,98 @@ Parameters:
   BucketName:
     Type: String
     Default: 'file-conversion-storage'
+  LambdaFunctionName:
+    Type: String
+    Default: 'ConvertFile'
+  LambdaSourceBucket:
+    Type: String
+    Default: 'code-artifacts-omni-file-converter'
+  LambdaSourceKey:
+    Type: String
+    Default: 'app-1.0.0.zip'
 
 Resources:
+  ConverterLambdaExecutionRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 'lambda.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+      Policies:
+        - PolicyName: 'FileStoreS3'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 's3:GetObject'
+                  - 's3:PutObject'
+                Resource: !Sub 'arn:aws:s3:::${BucketName}/*'
+        - PolicyName: 'CloudWatchLogs'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*'
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${LambdaFunctionName}:*'
+  ConverterLambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    DependsOn: 'ConverterLambdaExecutionRole'
+    Properties:
+      Code:
+        S3Bucket: !Ref LambdaSourceBucket
+        S3Key: !Ref LambdaSourceKey
+      Description: 'Converts files from one type to another'
+      Handler: 'converter.Handler::handleRequest'
+      FunctionName: !Ref LambdaFunctionName
+      Role: !GetAtt 'ConverterLambdaExecutionRole.Arn'
+      Runtime: 'java11'
+      Timeout: 300
+  ConverterLambdaPermissions:
+    Type: 'AWS::Lambda::Permission'
+    DependsOn: 'ConverterLambdaFunction'
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !Ref LambdaFunctionName
+      Principal: 's3.amazonaws.com'
+      SourceAccount: !Sub '${AWS::AccountId}'
+      SourceArn: !Sub 'arn:aws:s3:::${BucketName}'
   FileStoreS3:
     Type: 'AWS::S3::Bucket'
+    DependsOn: 'ConverterLambdaPermissions'
     Properties:
       BucketName: !Ref BucketName
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: 's3:ObjectCreated:Put'
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: 'prefix'
+                    Value: 'original'
+            Function: !GetAtt 'ConverterLambdaFunction.Arn'
   FileStoreS3BucketPolicy:
     Type: 'AWS::S3::BucketPolicy'
     Properties:
-        Bucket: !Ref BucketName
-        PolicyDocument:
-          Version: '2012-10-17'
-          Statement:
-            - Action:
-                - 's3:*'
-              Effect: Allow
-              Resource: !Join
-                - ''
-                - - 'arn:aws:s3:::'
-                  - !Ref BucketName
-                  - '/*'
-              Principal:
-                AWS: 'arn:aws:iam::397540002695:user/iamadmin'
+      Bucket: !Ref BucketName
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Action:
+              - 's3:*'
+            Effect: Allow
+            Resource: !Sub 'arn:aws:s3:::${BucketName}/*'
+            Principal:
+              AWS: !Sub '${AWS::AccountId}'
+
