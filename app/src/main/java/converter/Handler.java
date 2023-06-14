@@ -5,31 +5,41 @@ import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.S3Event;
 import com.amazonaws.services.lambda.runtime.events.models.s3.S3EventNotification.S3EventNotificationRecord;
-import software.amazon.awssdk.transfer.s3.S3TransferManager;
 import converter.accessor.S3Accessor;
-import converter.accessor.S3AccessorImpl;
+import converter.dagger.HandlerComponent;
 
 import java.io.File;
 
-// Handler value: example.Handler
+/**
+ * Able to process AWS S3 Lambda requests
+ * Converts a file uploaded to S3 to another file type
+ * Places the converted file in the 'converted/' folder with the same name
+ */
 public class Handler implements RequestHandler<S3Event, String> {
-  @Override
-  public String handleRequest(S3Event s3event, Context context) {
+    private S3Accessor s3Accessor;
+
+    public Handler() {
+        HandlerComponent handlerComponent = HandlerComponent.create();
+        this.s3Accessor = handlerComponent.s3Accessor();
+    }
+
+    @Override
+    public String handleRequest(S3Event s3event, Context context) {
       LambdaLogger logger = context.getLogger();
-      S3Accessor s3Accessor = new S3AccessorImpl(S3TransferManager.create());
       S3EventNotificationRecord record = s3event.getRecords().get(0);
       String srcBucket = record.getS3().getBucket().getName();
       // Object key may have spaces or unicode non-ASCII characters.
       String srcKey = record.getS3().getObject().getUrlDecodedKey();
 
       try {
-          File downloadedFile = s3Accessor.getObject(srcBucket, srcKey);
+          File downloadedFile = this.s3Accessor.getObject(srcBucket, srcKey);
 
-          s3Accessor.putObject(srcBucket, "converted/" + downloadedFile.getName(), downloadedFile);
+          String convertedObjectKey = "converted/" + downloadedFile.getName();
+          this.s3Accessor.putObject(srcBucket, convertedObjectKey, downloadedFile);
       } catch (Exception e) {
         logger.log(e.getMessage());
       }
 
       return "Ok";
-  }
+    }
 }

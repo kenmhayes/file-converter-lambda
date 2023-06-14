@@ -25,7 +25,7 @@ public class S3AccessorImplTest {
     private FileUpload mockFileUpload;
 
     @BeforeEach
-    public void setupTest() {
+    public void setupTests() {
         mockTransferManager = mock(S3TransferManager.class);
         mockFileDownload = mock(FileDownload.class);
         mockFileUpload = mock(FileUpload.class);

@@ -5,6 +5,8 @@ import converter.utils.S3Utils;
 import java.io.File;
 import java.io.IOException;
 
+import javax.inject.Inject;
+
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
 import software.amazon.awssdk.transfer.s3.model.DownloadFileRequest;
 import software.amazon.awssdk.transfer.s3.model.FileDownload;
@@ -13,6 +15,7 @@ import software.amazon.awssdk.transfer.s3.model.FileUpload;
 
 public class S3AccessorImpl implements S3Accessor {
     private S3TransferManager transferManager;
+    @Inject
     public S3AccessorImpl(S3TransferManager transferManager) {
         this.transferManager = transferManager;
     }
