@@ -15,6 +15,9 @@ Parameters:
   LambdaSourceKey:
     Type: String
     Default: 'app-1.0.0.zip'
+  IdentityPoolName:
+    Type: String
+    Default: 'omni-file-converter'
 
 Resources:
   ConverterLambdaExecutionRole:
@@ -78,6 +81,23 @@ Resources:
     DependsOn: 'ConverterLambdaPermissions'
     Properties:
       BucketName: !Ref BucketName
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - '*'
+            AllowedMethods:
+              - 'GET'
+              - 'HEAD'
+              - 'PUT'
+              - 'POST'
+              - 'DELETE'
+            AllowedOrigins:
+              - '*'
+            ExposedHeaders:
+              - 'x-amz-server-side-encryption'
+              - 'x-amz-request-id'
+              - 'x-amz-id-2'
+              - 'ETag'
       NotificationConfiguration:
         LambdaConfigurations:
           - Event: 's3:ObjectCreated:Put'
@@ -100,4 +120,44 @@ Resources:
             Resource: !Sub 'arn:aws:s3:::${BucketName}/*'
             Principal:
               AWS: !Sub '${AWS::AccountId}'
+  CognitoIdentityPool:
+    Type: 'AWS::Cognito::IdentityPool'
+    Properties:
+      AllowUnauthenticatedIdentities: true
+      IdentityPoolName: !Ref IdentityPoolName
+  CognitoRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: 'cognito-identity.amazonaws.com'
+            Action:
+              - 'sts:AssumeRoleWithWebIdentity'
+            Condition:
+              ForAnyValue:StringLike:
+                cognito-identity.amazonaws.com:amr: 'unauthenticated'
+      Policies:
+        - PolicyName: 'FileStoreS3'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 's3:GetObject'
+                  - 's3:PutObject'
+                Resource: !Sub 'arn:aws:s3:::${BucketName}/*'
+  CognitoIdentityPoolRoleAttachment:
+    Type: 'AWS::Cognito::IdentityPoolRoleAttachment'
+    DependsOn:
+      - 'CognitoIdentityPool'
+      - 'CognitoRole'
+    Properties:
+      IdentityPoolId: !Ref CognitoIdentityPool
+      Roles:
+        "unauthenticated": !GetAtt 'CognitoRole.Arn'
+
+
 
