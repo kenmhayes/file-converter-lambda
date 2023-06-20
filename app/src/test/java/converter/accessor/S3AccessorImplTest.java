@@ -1,6 +1,5 @@
 package converter.accessor;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
 
 import java.io.File;
@@ -39,23 +38,12 @@ public class S3AccessorImplTest {
     }
 
     @Test
-    public void getObject_ReturnsFile() throws IOException {
-        String bucketName = "bucket";
-        String objectKey = "original/key.txt";
-
-        File output = s3Accessor.getObject(bucketName, objectKey);
-
-        assertEquals("key.txt", output.getName());
-
-        output.delete();
-    }
-
-    @Test
     public void getObject_CallsDownloadAPI() throws IOException {
         String bucketName = "bucket";
         String objectKey = "key.txt";
 
-        File output = s3Accessor.getObject(bucketName, objectKey);
+        File output = File.createTempFile("key", ".txt");
+        s3Accessor.getObject(bucketName, objectKey, output);
 
         verify(mockTransferManager).downloadFile(
                 DownloadFileRequest.builder()

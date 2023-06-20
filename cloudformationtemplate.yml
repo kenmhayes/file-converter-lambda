@@ -62,8 +62,9 @@ Resources:
         S3Bucket: !Ref LambdaSourceBucket
         S3Key: !Ref LambdaSourceKey
       Description: 'Converts files from one type to another'
-      Handler: 'converter.Handler::handleRequest'
+      Handler: 'converter.LambdaHandler::handleRequest'
       FunctionName: !Ref LambdaFunctionName
+      MemorySize: 1024
       Role: !GetAtt 'ConverterLambdaExecutionRole.Arn'
       Runtime: 'java11'
       Timeout: 300

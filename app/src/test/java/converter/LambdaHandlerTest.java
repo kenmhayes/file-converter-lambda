@@ -11,6 +11,9 @@ import converter.dagger.HandlerComponent;
 
 import java.io.File;
 
+import converter.filehandler.FileHandler;
+import converter.filehandler.FileHandlerProvider;
+import converter.utils.FileUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,9 +22,9 @@ import org.mockito.MockedStatic;
 import java.io.IOException;
 import java.util.Arrays;
 
-public class HandlerTest {
+public class LambdaHandlerTest {
     private static String TEST_BUCKET = "my-bucket";
-    private static String TEST_OBJECT_KEY = "original/myfile.txt";
+    private static String TEST_OBJECT_KEY = "original/png/myfile.jpg";
     private static S3Event TEST_EVENT = new S3Event(Arrays.asList(
             new S3EventNotification.S3EventNotificationRecord(
                     "us-east-1",
@@ -41,11 +44,13 @@ public class HandlerTest {
             )
     ));
     ;
-    private Handler handler;
+    private LambdaHandler lambdaHandler;
     private MockedStatic mockHandlerComponent;
     private S3Accessor mockS3Accessor;
     private Context mockContext;
     private LambdaLogger mockLambdaLogger;
+    private FileHandlerProvider mockFileHandlerProvider;
+    private FileHandler mockFileHandler;
 
     @BeforeEach
     public void setupTests() {
@@ -54,12 +59,16 @@ public class HandlerTest {
         this.mockS3Accessor = mock(S3Accessor.class);
         this.mockContext = mock(Context.class);
         this.mockLambdaLogger = mock(LambdaLogger.class);
+        this.mockFileHandlerProvider = mock(FileHandlerProvider.class);
+        this.mockFileHandler = mock(FileHandler.class);
 
         when(mockDaggerHandlerComponent.s3Accessor()).thenReturn(mockS3Accessor);
+        when(mockDaggerHandlerComponent.fileHandlerProvider()).thenReturn(mockFileHandlerProvider);
         when(HandlerComponent.create()).thenReturn(mockDaggerHandlerComponent);
         when(mockContext.getLogger()).thenReturn(mockLambdaLogger);
+        when(mockFileHandlerProvider.getFileHandler(anyString(), anyString())).thenReturn(mockFileHandler);
 
-        this.handler = new Handler();
+        this.lambdaHandler = new LambdaHandler();
     }
 
     @AfterEach
@@ -75,21 +84,21 @@ public class HandlerTest {
 
     @Test
     public void handleRequest_S3Event_PutsObject() throws IOException {
-        File tempFile = new File(TEST_BUCKET, TEST_OBJECT_KEY);
+        File downloadedFile = FileUtils.createTempFile("myfile.jpg");
+        File convertedFile = FileUtils.createTempFile("myfile.png");
 
-        when(mockS3Accessor.getObject(TEST_BUCKET, TEST_OBJECT_KEY)).thenReturn(tempFile);
-        this.handler.handleRequest(TEST_EVENT, mockContext);
+        this.lambdaHandler.handleRequest(TEST_EVENT, mockContext);
 
-        verify(mockS3Accessor).putObject(TEST_BUCKET, "converted/" + tempFile.getName(), tempFile);
-
-        tempFile.delete();
+        verify(mockS3Accessor).getObject(TEST_BUCKET, TEST_OBJECT_KEY, downloadedFile);
+        verify(mockFileHandler).convert(downloadedFile, convertedFile);
+        verify(mockS3Accessor).putObject(TEST_BUCKET, "converted/myfile.png", convertedFile);
     }
 
     @Test
     public void handleRequest_ExceptionOccurs_LogsError() throws IOException {
         String errorMessage = "This is an error";
-        when(mockS3Accessor.getObject(anyString(), anyString())).thenThrow(new IOException(errorMessage));
-        this.handler.handleRequest(TEST_EVENT, mockContext);
+        doThrow(new IOException(errorMessage)).when(mockS3Accessor).getObject(anyString(), anyString(), any(File.class));
+        this.lambdaHandler.handleRequest(TEST_EVENT, mockContext);
 
         verify(mockLambdaLogger).log(errorMessage);
     }

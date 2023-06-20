@@ -1,7 +1,5 @@
 package converter.accessor;
 
-import converter.utils.S3Utils;
-
 import java.io.File;
 import java.io.IOException;
 
@@ -20,22 +18,17 @@ public class S3AccessorImpl implements S3Accessor {
         this.transferManager = transferManager;
     }
 
-    public File getObject(String bucketName, String objectKey) throws IOException {
-        String temporaryDirectory = System.getProperty("java.io.tmpdir");
-        File tempFile = new File(temporaryDirectory, S3Utils.getFileNameFromKey(objectKey));
-
+    public void getObject(String bucketName, String objectKey, File outputFile) throws IOException {
         DownloadFileRequest downloadFileRequest =
                 DownloadFileRequest.builder()
                         .getObjectRequest(builder -> builder.bucket(bucketName).key(objectKey))
-                        .destination(tempFile)
+                        .destination(outputFile)
                         .build();
 
         FileDownload download = transferManager.downloadFile(downloadFileRequest);
 
         // Wait for the transfer to complete
         download.completionFuture().join();
-
-        return tempFile;
     }
 
     public void putObject(String bucketName, String objectKey, File file) throws IOException {

@@ -9,13 +9,12 @@ import java.io.IOException;
 public interface S3Accessor {
     /**
      * Gets an object from a S3 bucket and stores it in a local File
-     * File is stored in the temporary directory
      * @param bucketName S3 bucket name
      * @param objectKey S3 object key
-     * @return File with data downloaded from S3
+     * @param outputFile File to save data to
      * @throws IOException
      */
-    public File getObject(String bucketName, String objectKey) throws IOException;
+    public void getObject(String bucketName, String objectKey, File outputFile) throws IOException;
 
     /**
      * Puts an object from a local File into S3
