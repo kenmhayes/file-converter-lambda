@@ -14,7 +14,7 @@ Parameters:
     Default: 'code-artifacts-omni-file-converter'
   LambdaSourceKey:
     Type: String
-    Default: 'app-1.0.0.zip'
+    Default: 'FileConverterLambda-0.1.0.zip'
   IdentityPoolName:
     Type: String
     Default: 'omni-file-converter'
