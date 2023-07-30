@@ -6,6 +6,9 @@ Parameters:
   BucketName:
     Type: String
     Default: 'file-conversion-storage'
+  QueueName:
+    Type: String
+    Default: 'file-conversion-queue'
   LambdaFunctionName:
     Type: String
     Default: 'ConvertFile'
@@ -23,6 +26,24 @@ Parameters:
 
 
 Resources:
+  StatusQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Ref QueueName
+  QueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Ref 'AWS::AccountId'
+            Action:
+              - 'sqs:SendMessage'
+              - 'sqs:GetQueueUrl'
+      Queues:
+        -  !Ref StatusQueue
   ConverterLambdaExecutionRole:
     Type: 'AWS::IAM::Role'
     Properties:
@@ -57,6 +78,15 @@ Resources:
                   - 'logs:CreateLogStream'
                   - 'logs:PutLogEvents'
                 Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${LambdaFunctionName}:*'
+        - PolicyName: 'StatusQueue'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'sqs:SendMessage'
+                  - 'sqs:GetQueueUrl'
+                Resource: !GetAtt 'StatusQueue.Arn'
   ConverterLambdaFunction:
     Type: 'AWS::Lambda::Function'
     DependsOn: 'ConverterLambdaExecutionRole'
@@ -65,6 +95,9 @@ Resources:
         S3Bucket: !Ref LambdaSourceBucket
         S3Key: !Ref LambdaSourceKey
       Description: 'Converts files from one type to another'
+      Environment:
+        Variables:
+          QueueName: !Ref QueueName
       Handler: 'converter.LambdaHandler::handleRequest'
       FunctionName: !Ref LambdaFunctionName
       MemorySize: 1024

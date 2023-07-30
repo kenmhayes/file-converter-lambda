@@ -7,12 +7,14 @@ import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.amazonaws.services.lambda.runtime.events.S3Event;
 import com.amazonaws.services.lambda.runtime.events.models.s3.S3EventNotification;
 import converter.accessor.S3Accessor;
+import converter.accessor.SQSAccessor;
 import converter.dagger.HandlerComponent;
 
 import java.io.File;
 
 import converter.filehandler.FileHandler;
 import converter.filehandler.FileHandlerProvider;
+import converter.model.ConversionStatus;
 import converter.utils.FileUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,6 +49,7 @@ public class LambdaHandlerTest {
     private LambdaHandler lambdaHandler;
     private MockedStatic mockHandlerComponent;
     private S3Accessor mockS3Accessor;
+    private SQSAccessor mockSQSAccessor;
     private Context mockContext;
     private LambdaLogger mockLambdaLogger;
     private FileHandlerProvider mockFileHandlerProvider;
@@ -57,12 +60,14 @@ public class LambdaHandlerTest {
         this.mockHandlerComponent = mockStatic(HandlerComponent.class);
         HandlerComponent mockDaggerHandlerComponent = mock(HandlerComponent.class);
         this.mockS3Accessor = mock(S3Accessor.class);
+        this.mockSQSAccessor = mock(SQSAccessor.class);
         this.mockContext = mock(Context.class);
         this.mockLambdaLogger = mock(LambdaLogger.class);
         this.mockFileHandlerProvider = mock(FileHandlerProvider.class);
         this.mockFileHandler = mock(FileHandler.class);
 
         when(mockDaggerHandlerComponent.s3Accessor()).thenReturn(mockS3Accessor);
+        when(mockDaggerHandlerComponent.sqsAccessor()).thenReturn(mockSQSAccessor);
         when(mockDaggerHandlerComponent.fileHandlerProvider()).thenReturn(mockFileHandlerProvider);
         when(HandlerComponent.create()).thenReturn(mockDaggerHandlerComponent);
         when(mockContext.getLogger()).thenReturn(mockLambdaLogger);
@@ -92,6 +97,8 @@ public class LambdaHandlerTest {
         verify(mockS3Accessor).getObject(TEST_BUCKET, TEST_OBJECT_KEY, downloadedFile);
         verify(mockFileHandler).convert(downloadedFile, convertedFile);
         verify(mockS3Accessor).putObject(TEST_BUCKET, "converted/myfile.png", convertedFile);
+        verify(mockSQSAccessor).sendStatusUpdateMessage("myfile", ConversionStatus.STARTED);
+        verify(mockSQSAccessor).sendStatusUpdateMessage("myfile", ConversionStatus.COMPLETED);
     }
 
     @Test
@@ -101,5 +108,6 @@ public class LambdaHandlerTest {
         this.lambdaHandler.handleRequest(TEST_EVENT, mockContext);
 
         verify(mockLambdaLogger).log(errorMessage);
+        verify(mockSQSAccessor).sendStatusUpdateMessage("myfile", ConversionStatus.FAILED_NO_RETRY);
     }
 }

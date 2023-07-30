@@ -1,6 +1,7 @@
 package converter.dagger;
 
 import converter.accessor.S3Accessor;
+import converter.accessor.SQSAccessor;
 import converter.filehandler.FileHandler;
 import converter.filehandler.FileHandlerProvider;
 import dagger.Component;
@@ -13,6 +14,7 @@ import java.util.Set;
 @Component(modules = {AWSModule.class, ConverterModule.class})
 public interface HandlerComponent {
     S3Accessor s3Accessor();
+    SQSAccessor sqsAccessor();
     FileHandlerProvider fileHandlerProvider();
     /**
      * Returns the Dagger implementation of this component
